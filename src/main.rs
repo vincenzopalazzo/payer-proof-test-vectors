@@ -14,17 +14,19 @@ use clap::{ArgAction, Parser, Subcommand};
 use std::fs;
 use std::path::PathBuf;
 
-use test_vectors::{TestVectorFile, TestVectorGenerator, verify_test_vector};
+use test_vectors::{verify_test_vector, TestVectorFile, TestVectorGenerator};
 
 #[derive(Parser)]
 #[command(name = "payer-proof-test-vectors")]
 #[command(author = "Lightning Network Developers")]
 #[command(version = "0.1.0")]
 #[command(about = "Generate and verify BOLT 12 payer proof test vectors")]
-#[command(long_about = "A CLI tool for generating and verifying test vectors for BOLT 12 payer proofs.\n\n\
+#[command(
+    long_about = "A CLI tool for generating and verifying test vectors for BOLT 12 payer proofs.\n\n\
 Based on:\n\
 - BOLT spec: https://github.com/lightning/bolts/pull/1295\n\
-- Reference implementation: https://github.com/lightningdevkit/rust-lightning/pull/4297")]
+- Reference implementation: https://github.com/lightningdevkit/rust-lightning/pull/4297"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -127,7 +129,13 @@ fn generate_test_vectors(
         let payer_seed = (42 + i) as u8;
         let recipient_seed = (43 + i) as u8;
 
-        match generator.generate_basic_vector(&name, &description, preimage_seed, payer_seed, recipient_seed) {
+        match generator.generate_basic_vector(
+            &name,
+            &description,
+            preimage_seed,
+            payer_seed,
+            recipient_seed,
+        ) {
             Ok(vector) => {
                 file.add_vector(vector);
                 println!("  Generated: {}", name);
@@ -156,7 +164,13 @@ fn generate_test_vectors(
             let payer_seed = (50 + i) as u8;
             let recipient_seed = (51 + i) as u8;
 
-            match generator.generate_vector_with_note(name, note, preimage_seed, payer_seed, recipient_seed) {
+            match generator.generate_vector_with_note(
+                name,
+                note,
+                preimage_seed,
+                payer_seed,
+                recipient_seed,
+            ) {
                 Ok(vector) => {
                     file.add_vector(vector);
                     println!("  Generated: {}", name);

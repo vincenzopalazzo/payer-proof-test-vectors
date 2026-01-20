@@ -1,0 +1,74 @@
+name: Test Vectors
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  generate-and-verify:
+    name: Generate and Verify Test Vectors
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Generate test vectors
+        run: ./target/release/payer-proof-test-vectors generate -o test_vectors.json
+
+      - name: Display generated vectors summary
+        run: |
+          echo "=== Test Vectors File ==="
+          head -50 test_vectors.json
+          echo "..."
+          echo "=== End of Preview ==="
+
+      - name: Verify test vectors
+        run: ./target/release/payer-proof-test-vectors verify -i test_vectors.json -v
+
+      - name: Upload test vectors as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-vectors
+          path: test_vectors.json
+          retention-days: 30
+
+  determinism-check:
+    name: Verify Deterministic Generation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Generate test vectors (first run)
+        run: ./target/release/payer-proof-test-vectors generate -o vectors_1.json
+
+      - name: Generate test vectors (second run)
+        run: ./target/release/payer-proof-test-vectors generate -o vectors_2.json
+
+      - name: Compare generated files
+        run: |
+          if diff vectors_1.json vectors_2.json > /dev/null; then
+            echo "Determinism check passed: both runs produced identical output"
+          else
+            echo "Determinism check FAILED: outputs differ"
+            diff vectors_1.json vectors_2.json || true
+            exit 1
+          fi

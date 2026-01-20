@@ -247,7 +247,9 @@ impl TestVectorGenerator {
     /// Get invoice bytes using Writeable trait.
     fn invoice_bytes(invoice: &Bolt12Invoice) -> Vec<u8> {
         let mut bytes = Vec::new();
-        invoice.write(&mut bytes).expect("Vec write should not fail");
+        invoice
+            .write(&mut bytes)
+            .expect("Vec write should not fail");
         bytes
     }
 
