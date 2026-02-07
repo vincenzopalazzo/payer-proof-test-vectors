@@ -273,7 +273,7 @@ checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 [[package]]
 name = "lightning"
 version = "0.3.0+git"
-source = "git+https://github.com/vincenzopalazzo/rust-lightning?branch=macros%2Fproof-of-payment-bolt12-spec#9f84e1909045f8c1f94da3bf1037eddbe7814c04"
+source = "git+https://github.com/vincenzopalazzo/rust-lightning?branch=macros%2Fproof-of-payment-bolt12-spec#da63590a2b2b13cb71d6de455ba9bb2119cd8215"
 dependencies = [
  "bech32",
  "bitcoin",
@@ -290,7 +290,7 @@ dependencies = [
 [[package]]
 name = "lightning-invoice"
 version = "0.34.0+git"
-source = "git+https://github.com/vincenzopalazzo/rust-lightning?branch=macros%2Fproof-of-payment-bolt12-spec#9f84e1909045f8c1f94da3bf1037eddbe7814c04"
+source = "git+https://github.com/vincenzopalazzo/rust-lightning?branch=macros%2Fproof-of-payment-bolt12-spec#da63590a2b2b13cb71d6de455ba9bb2119cd8215"
 dependencies = [
  "bech32",
  "bitcoin",
@@ -300,7 +300,7 @@ dependencies = [
 [[package]]
 name = "lightning-macros"
 version = "0.2.0+git"
-source = "git+https://github.com/vincenzopalazzo/rust-lightning?branch=macros%2Fproof-of-payment-bolt12-spec#9f84e1909045f8c1f94da3bf1037eddbe7814c04"
+source = "git+https://github.com/vincenzopalazzo/rust-lightning?branch=macros%2Fproof-of-payment-bolt12-spec#da63590a2b2b13cb71d6de455ba9bb2119cd8215"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -310,7 +310,7 @@ dependencies = [
 [[package]]
 name = "lightning-types"
 version = "0.3.0+git"
-source = "git+https://github.com/vincenzopalazzo/rust-lightning?branch=macros%2Fproof-of-payment-bolt12-spec#9f84e1909045f8c1f94da3bf1037eddbe7814c04"
+source = "git+https://github.com/vincenzopalazzo/rust-lightning?branch=macros%2Fproof-of-payment-bolt12-spec#da63590a2b2b13cb71d6de455ba9bb2119cd8215"
 dependencies = [
  "bitcoin",
 ]
@@ -354,7 +354,7 @@ dependencies = [
 [[package]]
 name = "possiblyrandom"
 version = "0.2.0"
-source = "git+https://github.com/vincenzopalazzo/rust-lightning?branch=macros%2Fproof-of-payment-bolt12-spec#9f84e1909045f8c1f94da3bf1037eddbe7814c04"
+source = "git+https://github.com/vincenzopalazzo/rust-lightning?branch=macros%2Fproof-of-payment-bolt12-spec#da63590a2b2b13cb71d6de455ba9bb2119cd8215"
 dependencies = [
  "getrandom",
 ]
