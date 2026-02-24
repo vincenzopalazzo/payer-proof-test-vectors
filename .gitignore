@@ -1,5 +1,4 @@
 /target
 
-# Generated test vector files
-test_vectors.json
+# Generated test output files
 test_output.json

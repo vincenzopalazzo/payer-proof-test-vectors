@@ -275,15 +275,12 @@ impl TestVectorGenerator {
         // Build the payer proof
         let builder = PayerProofBuilder::new(&invoice, preimage)
             .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?;
-        let unsigned = builder
-            .build()
-            .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?;
-        let merkle_root = unsigned.merkle_root();
 
-        // Sign with payer's known key
-        let proof = unsigned
-            .sign(self.payer_proof_sign(payer_seed), None)
+        // Build and sign with payer's known key
+        let proof = builder
+            .build_and_sign(self.payer_proof_sign(payer_seed), None)
             .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?;
+        let merkle_root = proof.merkle_root();
 
         // Verify the proof
         proof
@@ -331,15 +328,12 @@ impl TestVectorGenerator {
 
         let builder = PayerProofBuilder::new(&invoice, preimage)
             .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?;
-        let unsigned = builder
-            .build()
-            .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?;
-        let merkle_root = unsigned.merkle_root();
 
-        // Sign with payer's known key
-        let proof = unsigned
-            .sign(self.payer_proof_sign(payer_seed), Some(note))
+        // Build and sign with payer's known key
+        let proof = builder
+            .build_and_sign(self.payer_proof_sign(payer_seed), Some(note))
             .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?;
+        let merkle_root = proof.merkle_root();
 
         proof
             .verify()
