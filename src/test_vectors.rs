@@ -17,13 +17,16 @@ use lightning::blinded_path::payment::{BlindedPayInfo, BlindedPaymentPath};
 use lightning::blinded_path::BlindedHop;
 use lightning::offers::invoice::{Bolt12Invoice, UnsignedBolt12Invoice};
 use lightning::offers::merkle::TaggedHash;
-use lightning::offers::payer_proof::{PayerProof, PayerProofBuilder};
+use lightning::offers::payer_proof::PayerProof;
 use lightning::offers::refund::RefundBuilder;
 use lightning::types::features::BlindedHopFeatures;
-use lightning::util::ser::Writeable;
+use lightning::util::ser::{BigSize, Readable, Writeable};
 use lightning_types::payment::{PaymentHash, PaymentPreimage};
 
 use crate::payer_proof::TestVectorError;
+
+const EXPERIMENTAL_INVOICE_TLV_TYPE: u64 = 3_000_000_001;
+const EXPERIMENTAL_INVOICE_TLV_VALUE: &[u8] = b"experimental-payer-proof-field";
 
 /// A single test vector for payer proof verification.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,6 +72,11 @@ pub struct TestVectorExpected {
     /// The expected bech32-encoded proof.
     pub proof_bech32: String,
     /// Expected payer signature in hex.
+    ///
+    /// TODO: The public rust-lightning API does not expose the raw payer
+    /// signature separately from the proof bytes, so this field is currently
+    /// always empty.  Remove it once downstream consumers confirm they do not
+    /// rely on it, or populate it if a future API exposes the signature.
     pub payer_signature_hex: String,
     /// Optional error message if invalid.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -253,6 +261,59 @@ impl TestVectorGenerator {
         bytes
     }
 
+    /// Get unsigned invoice bytes using Writeable trait.
+    fn unsigned_invoice_bytes(invoice: &UnsignedBolt12Invoice) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        invoice
+            .write(&mut bytes)
+            .expect("Vec write should not fail");
+        bytes
+    }
+
+    fn last_tlv_type(bytes: &[u8]) -> Option<u64> {
+        let mut cursor = std::io::Cursor::new(bytes);
+        let mut last_type = None;
+
+        while (cursor.position() as usize) < bytes.len() {
+            let tlv_type: BigSize =
+                Readable::read(&mut cursor).expect("invoice bytes should contain valid TLVs");
+            let tlv_len: BigSize =
+                Readable::read(&mut cursor).expect("invoice bytes should contain valid TLVs");
+            cursor.set_position(cursor.position() + tlv_len.0);
+            last_type = Some(tlv_type.0);
+        }
+
+        last_type
+    }
+
+    /// Append a raw TLV record to an already canonical TLV stream.
+    ///
+    /// The caller must preserve strict ascending TLV ordering when appending.
+    fn append_raw_tlv_record(bytes: &mut Vec<u8>, tlv_type: u64, value: &[u8]) {
+        debug_assert!(
+            Self::last_tlv_type(bytes)
+                .map(|last_type| tlv_type > last_type)
+                .unwrap_or(true),
+            "appended TLV types must preserve strict ascending order"
+        );
+        BigSize(tlv_type)
+            .write(bytes)
+            .expect("Vec write should not fail");
+        BigSize(value.len() as u64)
+            .write(bytes)
+            .expect("Vec write should not fail");
+        bytes.extend_from_slice(value);
+    }
+
+    /// Re-parse a generated proof through rust-lightning's full payer-proof validation path.
+    ///
+    /// On the pinned rust-lightning revision, `PayerProof::try_from` verifies the preimage hash
+    /// plus both the issuer and payer signatures before returning `Ok`.
+    fn reparse_verified_proof(bytes: &[u8]) -> Result<PayerProof, TestVectorError> {
+        PayerProof::try_from(bytes.to_vec())
+            .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))
+    }
+
     /// Generates a basic test vector.
     pub fn generate_basic_vector(
         &self,
@@ -273,19 +334,16 @@ impl TestVectorGenerator {
         let invoice_bytes = Self::invoice_bytes(&invoice);
 
         // Build the payer proof
-        let builder = PayerProofBuilder::new(&invoice, preimage)
+        let builder = invoice
+            .payer_proof_builder(preimage)
             .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?;
 
         // Build and sign with payer's known key
         let proof = builder
-            .build_and_sign(self.payer_proof_sign(payer_seed), None)
+            .build(self.payer_proof_sign(payer_seed), None)
             .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?;
         let merkle_root = proof.merkle_root();
-
-        // Verify the proof
-        proof
-            .verify()
-            .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?;
+        Self::reparse_verified_proof(proof.as_ref())?;
 
         Ok(TestVector {
             description: description.to_string(),
@@ -326,18 +384,16 @@ impl TestVectorGenerator {
 
         let invoice_bytes = Self::invoice_bytes(&invoice);
 
-        let builder = PayerProofBuilder::new(&invoice, preimage)
+        let builder = invoice
+            .payer_proof_builder(preimage)
             .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?;
 
         // Build and sign with payer's known key
         let proof = builder
-            .build_and_sign(self.payer_proof_sign(payer_seed), Some(note))
+            .build(self.payer_proof_sign(payer_seed), Some(note))
             .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?;
         let merkle_root = proof.merkle_root();
-
-        proof
-            .verify()
-            .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?;
+        Self::reparse_verified_proof(proof.as_ref())?;
 
         Ok(TestVector {
             description: format!("Payer proof with note: {}", note),
@@ -361,6 +417,86 @@ impl TestVectorGenerator {
         })
     }
 
+    /// Generates a payer proof vector that includes an odd experimental invoice TLV.
+    pub fn generate_vector_with_included_experimental_invoice_tlv(
+        &self,
+        name: &str,
+        preimage_seed: u8,
+        payer_seed: u8,
+        recipient_seed: u8,
+    ) -> Result<TestVector, TestVectorError> {
+        let preimage = PaymentPreimage([preimage_seed; 32]);
+        let payment_hash = PaymentHash(Sha256::hash(&preimage.0).to_byte_array());
+
+        let payer_pubkey = self.pubkey(payer_seed);
+        let payment_paths = self.payment_paths();
+        let created_at = Duration::from_secs(1700000000);
+
+        let refund = RefundBuilder::new(vec![payer_seed; 32], payer_pubkey, 100_000)
+            .map_err(|e| TestVectorError::OfferBuild(format!("{:?}", e)))?
+            .description("Test refund".into())
+            .build()
+            .map_err(|e| TestVectorError::OfferBuild(format!("{:?}", e)))?;
+
+        let recipient_pubkey = self.pubkey(recipient_seed);
+        let unsigned_invoice = refund
+            .respond_with_no_std(payment_paths, payment_hash, recipient_pubkey, created_at)
+            .map_err(|e| TestVectorError::InvoiceBuild(format!("{:?}", e)))?
+            .build()
+            .map_err(|e| TestVectorError::InvoiceBuild(format!("{:?}", e)))?;
+
+        let mut unsigned_invoice_bytes = Self::unsigned_invoice_bytes(&unsigned_invoice);
+        Self::append_raw_tlv_record(
+            &mut unsigned_invoice_bytes,
+            EXPERIMENTAL_INVOICE_TLV_TYPE,
+            EXPERIMENTAL_INVOICE_TLV_VALUE,
+        );
+
+        let unsigned_invoice = UnsignedBolt12Invoice::try_from(unsigned_invoice_bytes)
+            .map_err(|e| TestVectorError::InvoiceBuild(format!("{:?}", e)))?;
+        let invoice = unsigned_invoice
+            .sign(self.invoice_sign::<UnsignedBolt12Invoice>(recipient_seed))
+            .map_err(|e| TestVectorError::InvoiceBuild(format!("{:?}", e)))?;
+
+        let invoice_bytes = Self::invoice_bytes(&invoice);
+
+        let builder = invoice
+            .payer_proof_builder(preimage)
+            .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?
+            .include_type(EXPERIMENTAL_INVOICE_TLV_TYPE)
+            .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?;
+
+        let proof = builder
+            .build(self.payer_proof_sign(payer_seed), None)
+            .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?;
+        let merkle_root = proof.merkle_root();
+
+        Self::reparse_verified_proof(proof.as_ref())?;
+
+        Ok(TestVector {
+            description: "Payer proof selectively disclosing an odd experimental invoice TLV above the reserved signature range".to_string(),
+            name: name.to_string(),
+            input: TestVectorInput {
+                invoice_hex: hex::encode(&invoice_bytes),
+                preimage_hex: hex::encode(preimage.0),
+                payer_secret_key_hex: hex::encode([payer_seed; 32]),
+                included_tlv_types: vec![EXPERIMENTAL_INVOICE_TLV_TYPE],
+                note: None,
+            },
+            expected: TestVectorExpected {
+                valid: true,
+                merkle_root_hex: hex::encode(merkle_root.as_byte_array()),
+                proof_hex: hex::encode(proof.as_ref()),
+                proof_bech32: proof.to_string(),
+                payer_signature_hex: String::new(),
+                error: None,
+            },
+            comments: Some(
+                "BOLT PR #1295 reserves only TLV types 240..=1000 for signature and payer-proof fields; experimental invoice TLVs above that range remain selectively disclosable.".to_string(),
+            ),
+        })
+    }
+
     /// Generates an invalid test vector (wrong preimage).
     pub fn generate_invalid_preimage_vector(
         &self,
@@ -381,7 +517,7 @@ impl TestVectorGenerator {
         let invoice_bytes = Self::invoice_bytes(&invoice);
 
         // Build proof with WRONG preimage - this should fail at build time
-        let builder_result = PayerProofBuilder::new(&invoice, wrong_preimage);
+        let builder_result = invoice.payer_proof_builder(wrong_preimage);
 
         match builder_result {
             Err(e) => {
@@ -437,21 +573,44 @@ pub fn verify_test_vector(vector: &TestVector) -> Result<bool, TestVectorError> 
     let proof_bytes = hex::decode(&vector.expected.proof_hex)
         .map_err(|e| TestVectorError::Parse(format!("Invalid proof hex: {}", e)))?;
 
-    // Try to parse as PayerProof
-    let proof = PayerProof::try_from(proof_bytes)
-        .map_err(|e| TestVectorError::Parse(format!("Failed to parse proof: {:?}", e)))?;
-
-    // Verify the proof
-    let verify_result = proof.verify();
-
-    match (vector.expected.valid, verify_result) {
-        (true, Ok(())) => Ok(true),
-        (false, Err(_)) => Ok(true), // Expected failure
-        (true, Err(e)) => Err(TestVectorError::Verification(format!("{:?}", e))),
-        (false, Ok(())) => Err(TestVectorError::Verification(
-            "Expected invalid proof but verification passed".to_string(),
-        )),
+    // On the pinned rust-lightning revision, parsing a payer proof also verifies the
+    // preimage hash and both signatures, so this is cryptographic validation rather
+    // than a structural check only.
+    let proof = match PayerProof::try_from(proof_bytes) {
+        Ok(proof) => proof,
+        Err(e) => {
+            if !vector.expected.valid {
+                return Ok(true); // Expected parse failure
+            }
+            return Err(TestVectorError::Parse(format!(
+                "Failed to parse proof: {:?}",
+                e
+            )));
+        }
+    };
+    let actual_merkle_root = hex::encode(proof.merkle_root().as_byte_array());
+    if vector.expected.merkle_root_hex != actual_merkle_root {
+        return Err(TestVectorError::Verification(format!(
+            "Merkle root mismatch: expected {}, got {}",
+            vector.expected.merkle_root_hex, actual_merkle_root
+        )));
     }
+
+    let actual_bech32 = proof.to_string();
+    if vector.expected.proof_bech32 != actual_bech32 {
+        return Err(TestVectorError::Verification(format!(
+            "Bech32 mismatch: expected {}, got {}",
+            vector.expected.proof_bech32, actual_bech32
+        )));
+    }
+
+    if !vector.expected.valid {
+        return Err(TestVectorError::Verification(
+            "Expected invalid proof but verification passed".to_string(),
+        ));
+    }
+
+    Ok(true)
 }
 
 #[cfg(test)]
@@ -466,5 +625,85 @@ mod tests {
         // Same seed should produce same keys
         assert_eq!(gen1.pubkey(1), gen2.pubkey(1));
         assert_eq!(gen1.secret_key(1), gen2.secret_key(1));
+    }
+
+    #[test]
+    fn test_generates_vector_with_included_experimental_invoice_tlv() {
+        let generator = TestVectorGenerator::default();
+
+        let vector = generator
+            .generate_vector_with_included_experimental_invoice_tlv(
+                "included_experimental_invoice_tlv",
+                210,
+                70,
+                71,
+            )
+            .expect("experimental invoice TLV vector should generate");
+
+        assert_eq!(
+            vector.input.included_tlv_types,
+            vec![EXPERIMENTAL_INVOICE_TLV_TYPE]
+        );
+        assert!(verify_test_vector(&vector).expect("vector should verify"));
+    }
+
+    /// Regression test: the experimental TLV vector's proof bytes must
+    /// round-trip through `PayerProof::try_from` on the pinned rust-lightning
+    /// revision (4e0068a3).
+    ///
+    /// On the previous PR head (3378fa3c7655e3312529d0e424231fd9bb4dde55)
+    /// the same bytes are rejected with `Decode(InvalidValue)` because that
+    /// revision incorrectly treats disclosed experimental invoice TLVs above
+    /// the reserved 240..=1000 payer-proof/signature range as invalid.
+    ///
+    /// Run `tests/regression_old_ldk.sh` to reproduce the failure against the
+    /// old revision.
+    #[test]
+    fn test_experimental_tlv_proof_parses_on_fixed_revision() {
+        let generator = TestVectorGenerator::default();
+
+        let vector = generator
+            .generate_vector_with_included_experimental_invoice_tlv(
+                "experimental_regression",
+                210,
+                70,
+                71,
+            )
+            .expect("experimental invoice TLV vector should generate");
+
+        // The generator already calls `reparse_verified_proof` internally, but
+        // exercise the full `try_from` path explicitly so the test name makes
+        // the intent clear: these proof bytes must parse on the fixed revision.
+        let proof_bytes =
+            hex::decode(&vector.expected.proof_hex).expect("generated proof hex must be valid");
+        let proof = PayerProof::try_from(proof_bytes)
+            .expect("experimental TLV proof must parse on the fixed rust-lightning revision");
+
+        // Sanity-check the merkle root so a silent mis-parse is caught.
+        assert_eq!(
+            hex::encode(proof.merkle_root().as_byte_array()),
+            vector.expected.merkle_root_hex,
+        );
+
+        // Sanity-check bech32 round-trip.
+        assert_eq!(proof.to_string(), vector.expected.proof_bech32);
+    }
+
+    #[test]
+    fn test_verify_rejects_tampered_proof_bytes() {
+        let generator = TestVectorGenerator::default();
+
+        let mut vector = generator
+            .generate_basic_vector("basic_tampered", "Tampered payer proof", 100, 42, 43)
+            .expect("basic vector should generate");
+
+        let mut proof_bytes = hex::decode(&vector.expected.proof_hex).expect("proof hex is valid");
+        let last_byte = proof_bytes
+            .last_mut()
+            .expect("generated payer proof should not be empty");
+        *last_byte ^= 0x01;
+        vector.expected.proof_hex = hex::encode(proof_bytes);
+
+        assert!(verify_test_vector(&vector).is_err());
     }
 }

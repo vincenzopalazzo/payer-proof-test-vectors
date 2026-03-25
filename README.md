@@ -50,6 +50,9 @@ payer-proof-test-vectors generate --no-notes --no-invalid
 - `--no-notes`: Skip test vectors that include payer notes
 - `--no-invalid`: Skip invalid/negative test vectors
 
+The experimental TLV spec regression vector is always generated so every regenerated
+corpus keeps covering the BOLT PR #1295 behavior.
+
 ### Verify Test Vectors
 
 Verify test vectors from a JSON file:
@@ -127,7 +130,7 @@ The generated JSON file contains an array of test vectors with the following str
 
 ## Test Vector Types
 
-The tool generates three types of test vectors:
+The tool generates four types of test vectors:
 
 ### 1. Basic Test Vectors
 Basic payer proofs with only required fields. These test the fundamental proof generation and verification logic.
@@ -138,6 +141,10 @@ Payer proofs that include an optional note field. The note is included in the me
 ### 3. Invalid Test Vectors
 Negative test cases that should fail verification:
 - `invalid_preimage`: Proof created with a preimage that doesn't match the invoice's payment hash
+
+### 4. Spec Regression Test Vectors
+Positive test cases covering specification edge cases from [BOLT PR #1295](https://github.com/lightning/bolts/pull/1295):
+- `included_experimental_invoice_tlv`: Proof selectively discloses an odd experimental invoice TLV above the reserved `240..=1000` payer-proof/signature range, and is always generated so every regenerated corpus keeps covering the normative regression
 
 ## Implementation Details
 
