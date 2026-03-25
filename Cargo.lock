@@ -273,7 +273,7 @@ checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 [[package]]
 name = "lightning"
 version = "0.3.0+git"
-source = "git+https://github.com/vincenzopalazzo/rust-lightning?branch=macros%2Fproof-of-payment-bolt12-spec#df419b47dc734a80af4306ce88f2850b485f3b6f"
+source = "git+https://github.com/vincenzopalazzo/rust-lightning?rev=4e0068a33c3313a2b36e6e967f2e31e1232a8a19#4e0068a33c3313a2b36e6e967f2e31e1232a8a19"
 dependencies = [
  "bech32",
  "bitcoin",
@@ -290,7 +290,7 @@ dependencies = [
 [[package]]
 name = "lightning-invoice"
 version = "0.35.0+git"
-source = "git+https://github.com/vincenzopalazzo/rust-lightning?branch=macros%2Fproof-of-payment-bolt12-spec#df419b47dc734a80af4306ce88f2850b485f3b6f"
+source = "git+https://github.com/vincenzopalazzo/rust-lightning?rev=4e0068a33c3313a2b36e6e967f2e31e1232a8a19#4e0068a33c3313a2b36e6e967f2e31e1232a8a19"
 dependencies = [
  "bech32",
  "bitcoin",
@@ -300,7 +300,7 @@ dependencies = [
 [[package]]
 name = "lightning-macros"
 version = "0.2.2+git"
-source = "git+https://github.com/vincenzopalazzo/rust-lightning?branch=macros%2Fproof-of-payment-bolt12-spec#df419b47dc734a80af4306ce88f2850b485f3b6f"
+source = "git+https://github.com/vincenzopalazzo/rust-lightning?rev=4e0068a33c3313a2b36e6e967f2e31e1232a8a19#4e0068a33c3313a2b36e6e967f2e31e1232a8a19"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -310,7 +310,7 @@ dependencies = [
 [[package]]
 name = "lightning-types"
 version = "0.4.0+git"
-source = "git+https://github.com/vincenzopalazzo/rust-lightning?branch=macros%2Fproof-of-payment-bolt12-spec#df419b47dc734a80af4306ce88f2850b485f3b6f"
+source = "git+https://github.com/vincenzopalazzo/rust-lightning?rev=4e0068a33c3313a2b36e6e967f2e31e1232a8a19#4e0068a33c3313a2b36e6e967f2e31e1232a8a19"
 dependencies = [
  "bitcoin",
 ]
@@ -354,7 +354,7 @@ dependencies = [
 [[package]]
 name = "possiblyrandom"
 version = "0.2.0"
-source = "git+https://github.com/vincenzopalazzo/rust-lightning?branch=macros%2Fproof-of-payment-bolt12-spec#df419b47dc734a80af4306ce88f2850b485f3b6f"
+source = "git+https://github.com/vincenzopalazzo/rust-lightning?rev=4e0068a33c3313a2b36e6e967f2e31e1232a8a19#4e0068a33c3313a2b36e6e967f2e31e1232a8a19"
 dependencies = [
  "getrandom",
 ]

@@ -11,9 +11,11 @@ hex = "0.4"
 bitcoin = { version = "0.32", features = ["serde"] }
 thiserror = "2.0"
 
-# Use the rust-lightning fork with payer proof implementation
-lightning = { git = "https://github.com/vincenzopalazzo/rust-lightning", branch = "macros/proof-of-payment-bolt12-spec", package = "lightning" }
-lightning-types = { git = "https://github.com/vincenzopalazzo/rust-lightning", branch = "macros/proof-of-payment-bolt12-spec", package = "lightning-types" }
+# Use the rust-lightning fork with payer proof implementation, pinned to the
+# revision that accepts experimental disclosed TLVs above the reserved
+# payer-proof/signature range.
+lightning = { git = "https://github.com/vincenzopalazzo/rust-lightning", rev = "4e0068a33c3313a2b36e6e967f2e31e1232a8a19", package = "lightning" }
+lightning-types = { git = "https://github.com/vincenzopalazzo/rust-lightning", rev = "4e0068a33c3313a2b36e6e967f2e31e1232a8a19", package = "lightning-types" }
 
 # For deterministic key generation in test vectors
 rand = "0.8"

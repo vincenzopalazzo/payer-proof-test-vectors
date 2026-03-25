@@ -203,6 +203,27 @@ fn generate_test_vectors(
         }
     }
 
+    // Always emit the regression vector so every regenerated corpus locks in the
+    // BOLT PR #1295 behavior, even when optional categories are skipped.
+    println!("\nGenerating mandatory spec regression test vectors...");
+    match generator.generate_vector_with_included_experimental_invoice_tlv(
+        "included_experimental_invoice_tlv",
+        210,
+        70,
+        71,
+    ) {
+        Ok(vector) => {
+            file.add_vector(vector);
+            println!("  Generated: included_experimental_invoice_tlv");
+        }
+        Err(e) => {
+            eprintln!(
+                "  Failed to generate included_experimental_invoice_tlv: {}",
+                e
+            );
+        }
+    }
+
     // Serialize and write to file
     let json = serde_json::to_string_pretty(&file)?;
     fs::write(&output, &json)?;
@@ -265,26 +286,16 @@ fn verify_test_vectors(
                 }
             }
             Err(e) => {
-                // For expected-invalid vectors, an error during verification is expected
-                if !vector.expected.valid {
-                    passed += 1;
-                    if verbose {
-                        println!("  Result: PASSED (expected error: {})", e);
-                    } else {
-                        print!(".");
-                    }
+                failed += 1;
+                let error_msg = format!("{}", e);
+                errors.push((vector.name.clone(), error_msg.clone()));
+                if verbose {
+                    println!("  Result: FAILED - {}", error_msg);
                 } else {
-                    failed += 1;
-                    let error_msg = format!("{}", e);
-                    errors.push((vector.name.clone(), error_msg.clone()));
-                    if verbose {
-                        println!("  Result: FAILED - {}", error_msg);
-                    } else {
-                        print!("F");
-                    }
-                    if !continue_on_failure {
-                        break;
-                    }
+                    print!("F");
+                }
+                if !continue_on_failure {
+                    break;
                 }
             }
         }
