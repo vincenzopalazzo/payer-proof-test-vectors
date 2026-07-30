@@ -6,6 +6,40 @@ A CLI tool for generating and verifying test vectors for BOLT 12 payer proofs as
 
 Payer proofs allow a payer to cryptographically prove they made a specific payment without revealing unnecessary information. This tool generates deterministic test vectors that can be used by other implementations to verify their payer proof logic.
 
+## Library: `bolt12-payer-proof`
+
+This workspace includes a focused verification library — `bolt12-payer-proof` —
+that wraps LDK's payer-proof primitives behind a clean, ergonomic API.
+
+### Quick start
+
+```rust
+use bolt12_payer_proof::verify;
+
+match verify("lnp1...") {
+    Ok(proof) => {
+        println!("Paid by:  {}", proof.payer_pubkey());
+        println!("Amount:   {} msats", proof.amount_msats().unwrap_or(0));
+        println!("For:      {}", proof.description().unwrap_or("(undisclosed)"));
+    }
+    Err(e) => eprintln!("Invalid proof: {e}"),
+}
+```
+
+Both `verify` (bech32 string) and `verify_bytes` (raw TLV bytes)
+perform full cryptographic validation: preimage hash, invoice signature, and
+payer signature are all checked before returning a `VerifiedPayerProof`.
+
+### Errors
+
+`VerifyError` distinguishes three failure categories:
+
+| Variant | Meaning |
+|---------|---------|
+| `InvalidBech32` | Wrong prefix, bad checksum, or unparseable encoding |
+| `MalformedProof` | Missing required TLVs or inconsistent merkle proof |
+| `VerificationFailed` | Preimage mismatch or invalid signature |
+
 ## References
 
 - **BOLT Specification**: https://github.com/lightning/bolts/pull/1295

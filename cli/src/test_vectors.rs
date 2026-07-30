@@ -6,7 +6,7 @@
 use bitcoin::hashes::sha256::Hash as Sha256;
 use bitcoin::hashes::Hash;
 use bitcoin::secp256k1::schnorr::Signature;
-use bitcoin::secp256k1::{Keypair, Message, PublicKey, Secp256k1, SecretKey};
+use bitcoin::secp256k1::{Keypair, PublicKey, Secp256k1, SecretKey};
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
@@ -17,7 +17,7 @@ use lightning::blinded_path::payment::{BlindedPayInfo, BlindedPaymentPath};
 use lightning::blinded_path::BlindedHop;
 use lightning::offers::invoice::{Bolt12Invoice, UnsignedBolt12Invoice};
 use lightning::offers::merkle::TaggedHash;
-use lightning::offers::payer_proof::PayerProof;
+use lightning::offers::payer_proof::{PaidBolt12Invoice, PayerProof, UnsignedPayerProof};
 use lightning::offers::refund::RefundBuilder;
 use lightning::types::features::BlindedHopFeatures;
 use lightning::util::ser::{BigSize, Readable, Writeable};
@@ -210,11 +210,13 @@ impl TestVectorGenerator {
         }
     }
 
-    /// Sign function for the payer proof (takes a Message).
-    fn payer_proof_sign(&self, seed: u8) -> impl FnOnce(&Message) -> Result<Signature, ()> + '_ {
-        move |message: &Message| {
+    /// Sign function for the payer proof (takes an UnsignedPayerProof).
+    fn payer_proof_sign(&self, seed: u8) -> impl Fn(&UnsignedPayerProof) -> Result<Signature, ()> + '_ {
+        move |proof: &UnsignedPayerProof| {
             let keys = self.keypair(seed);
-            Ok(self.secp.sign_schnorr_no_aux_rand(message, &keys))
+            Ok(self
+                .secp
+                .sign_schnorr_no_aux_rand(proof.as_ref().as_digest(), &keys))
         }
     }
 
@@ -334,13 +336,16 @@ impl TestVectorGenerator {
         let invoice_bytes = Self::invoice_bytes(&invoice);
 
         // Build the payer proof
-        let builder = invoice
-            .payer_proof_builder(preimage)
+        let builder = PaidBolt12Invoice::Bolt12Invoice(invoice)
+            .prove_payer(preimage)
             .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?;
 
         // Build and sign with payer's known key
-        let proof = builder
-            .build(self.payer_proof_sign(payer_seed), None)
+        let unsigned = builder
+            .build()
+            .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?;
+        let proof = unsigned
+            .sign(self.payer_proof_sign(payer_seed))
             .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?;
         let merkle_root = proof.merkle_root();
         Self::reparse_verified_proof(proof.as_ref())?;
@@ -384,13 +389,17 @@ impl TestVectorGenerator {
 
         let invoice_bytes = Self::invoice_bytes(&invoice);
 
-        let builder = invoice
-            .payer_proof_builder(preimage)
+        let builder = PaidBolt12Invoice::Bolt12Invoice(invoice)
+            .prove_payer(preimage)
             .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?;
 
         // Build and sign with payer's known key
-        let proof = builder
-            .build(self.payer_proof_sign(payer_seed), Some(note))
+        let unsigned = builder
+            .with_proof_note(note.to_string())
+            .build()
+            .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?;
+        let proof = unsigned
+            .sign(self.payer_proof_sign(payer_seed))
             .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?;
         let merkle_root = proof.merkle_root();
         Self::reparse_verified_proof(proof.as_ref())?;
@@ -460,14 +469,17 @@ impl TestVectorGenerator {
 
         let invoice_bytes = Self::invoice_bytes(&invoice);
 
-        let builder = invoice
-            .payer_proof_builder(preimage)
+        let builder = PaidBolt12Invoice::Bolt12Invoice(invoice)
+            .prove_payer(preimage)
             .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?
             .include_type(EXPERIMENTAL_INVOICE_TLV_TYPE)
             .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?;
 
-        let proof = builder
-            .build(self.payer_proof_sign(payer_seed), None)
+        let unsigned = builder
+            .build()
+            .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?;
+        let proof = unsigned
+            .sign(self.payer_proof_sign(payer_seed))
             .map_err(|e| TestVectorError::Verification(format!("{:?}", e)))?;
         let merkle_root = proof.merkle_root();
 
@@ -517,7 +529,8 @@ impl TestVectorGenerator {
         let invoice_bytes = Self::invoice_bytes(&invoice);
 
         // Build proof with WRONG preimage - this should fail at build time
-        let builder_result = invoice.payer_proof_builder(wrong_preimage);
+        let builder_result = PaidBolt12Invoice::Bolt12Invoice(invoice)
+            .prove_payer(wrong_preimage);
 
         match builder_result {
             Err(e) => {

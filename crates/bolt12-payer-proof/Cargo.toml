@@ -1,0 +1,21 @@
+[package]
+name = "bolt12-payer-proof"
+version = "0.1.0"
+edition = "2021"
+description = "A focused, ergonomic library for verifying BOLT 12 payer proofs"
+license = "MIT"
+repository = "https://github.com/vincenzopalazzo/payer-proof-test-vectors"
+keywords = ["lightning", "bolt12", "ldk", "payer-proof", "payment"]
+categories = ["cryptography::cryptocurrencies"]
+
+[dependencies]
+lightning = { git = "https://github.com/lightningdevkit/rust-lightning", tag = "v0.3.0-beta1", default-features = false }
+lightning-types = { git = "https://github.com/lightningdevkit/rust-lightning", tag = "v0.3.0-beta1" }
+bitcoin = { version = "0.32", default-features = false }
+bech32 = { version = "0.11", default-features = false }
+
+[dev-dependencies]
+lightning = { git = "https://github.com/lightningdevkit/rust-lightning", tag = "v0.3.0-beta1" }
+bitcoin = { version = "0.32", features = ["std", "rand-std"] }
+rand = "0.8"
+rand_chacha = "0.3"
