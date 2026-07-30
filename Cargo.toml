@@ -1,22 +1,10 @@
-[package]
-name = "payer-proof-test-vectors"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+resolver = "2"
+members = ["crates/bolt12-payer-proof", "cli"]
 
-[dependencies]
-clap = { version = "4.4", features = ["derive"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-hex = "0.4"
-bitcoin = { version = "0.32", features = ["serde"] }
-thiserror = "2.0"
-
-# Use the rust-lightning fork with payer proof implementation, pinned to the
-# revision that accepts experimental disclosed TLVs above the reserved
-# payer-proof/signature range.
-lightning = { git = "https://github.com/vincenzopalazzo/rust-lightning", rev = "4e0068a33c3313a2b36e6e967f2e31e1232a8a19", package = "lightning" }
-lightning-types = { git = "https://github.com/vincenzopalazzo/rust-lightning", rev = "4e0068a33c3313a2b36e6e967f2e31e1232a8a19", package = "lightning-types" }
-
-# For deterministic key generation in test vectors
-rand = "0.8"
-rand_chacha = "0.3"
+# Shared LDK dependency — pinned to the v0.3.0-beta1 tag that shipped the
+# payer-proof primitives.  Using workspace-level deps so both crates resolve to
+# the exact same revision.
+[workspace.dependencies]
+lightning = { git = "https://github.com/lightningdevkit/rust-lightning", tag = "v0.3.0-beta1" }
+lightning-types = { git = "https://github.com/lightningdevkit/rust-lightning", tag = "v0.3.0-beta1" }

@@ -129,6 +129,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "bolt12-payer-proof"
+version = "0.1.0"
+dependencies = [
+ "bech32",
+ "bitcoin",
+ "lightning",
+ "lightning-types",
+ "rand",
+ "rand_chacha",
+]
+
+[[package]]
 name = "cc"
 version = "1.2.53"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -143,6 +155,12 @@ name = "cfg-if"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
+
+[[package]]
+name = "chacha20-poly1305"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bad28386ab70dd960294556a76aaab6da2994fec47d650fd725b3012f062052a"
 
 [[package]]
 name = "clap"
@@ -272,25 +290,25 @@ checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 
 [[package]]
 name = "lightning"
-version = "0.3.0+git"
-source = "git+https://github.com/vincenzopalazzo/rust-lightning?rev=4e0068a33c3313a2b36e6e967f2e31e1232a8a19#4e0068a33c3313a2b36e6e967f2e31e1232a8a19"
+version = "0.3.0-beta1"
+source = "git+https://github.com/lightningdevkit/rust-lightning?tag=v0.3.0-beta1#9174965af9437196c527a9aa0df36bbcf050c8bb"
 dependencies = [
  "bech32",
  "bitcoin",
+ "chacha20-poly1305",
  "dnssec-prover",
  "hashbrown",
  "libm",
  "lightning-invoice",
  "lightning-macros",
  "lightning-types",
- "musig2",
  "possiblyrandom",
 ]
 
 [[package]]
 name = "lightning-invoice"
-version = "0.35.0+git"
-source = "git+https://github.com/vincenzopalazzo/rust-lightning?rev=4e0068a33c3313a2b36e6e967f2e31e1232a8a19#4e0068a33c3313a2b36e6e967f2e31e1232a8a19"
+version = "0.35.0-beta1"
+source = "git+https://github.com/lightningdevkit/rust-lightning?tag=v0.3.0-beta1#9174965af9437196c527a9aa0df36bbcf050c8bb"
 dependencies = [
  "bech32",
  "bitcoin",
@@ -300,7 +318,7 @@ dependencies = [
 [[package]]
 name = "lightning-macros"
 version = "0.2.2+git"
-source = "git+https://github.com/vincenzopalazzo/rust-lightning?rev=4e0068a33c3313a2b36e6e967f2e31e1232a8a19#4e0068a33c3313a2b36e6e967f2e31e1232a8a19"
+source = "git+https://github.com/lightningdevkit/rust-lightning?tag=v0.3.0-beta1#9174965af9437196c527a9aa0df36bbcf050c8bb"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -309,8 +327,8 @@ dependencies = [
 
 [[package]]
 name = "lightning-types"
-version = "0.4.0+git"
-source = "git+https://github.com/vincenzopalazzo/rust-lightning?rev=4e0068a33c3313a2b36e6e967f2e31e1232a8a19#4e0068a33c3313a2b36e6e967f2e31e1232a8a19"
+version = "0.4.0-beta1"
+source = "git+https://github.com/lightningdevkit/rust-lightning?tag=v0.3.0-beta1#9174965af9437196c527a9aa0df36bbcf050c8bb"
 dependencies = [
  "bitcoin",
 ]
@@ -320,14 +338,6 @@ name = "memchr"
 version = "2.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
-
-[[package]]
-name = "musig2"
-version = "0.1.0"
-source = "git+https://github.com/arik-so/rust-musig2?rev=6f95a05718cbb44d8fe3fa6021aea8117aa38d50#6f95a05718cbb44d8fe3fa6021aea8117aa38d50"
-dependencies = [
- "bitcoin",
-]
 
 [[package]]
 name = "once_cell_polyfill"
@@ -340,6 +350,7 @@ name = "payer-proof-test-vectors"
 version = "0.1.0"
 dependencies = [
  "bitcoin",
+ "bolt12-payer-proof",
  "clap",
  "hex",
  "lightning",
@@ -354,7 +365,7 @@ dependencies = [
 [[package]]
 name = "possiblyrandom"
 version = "0.2.0"
-source = "git+https://github.com/vincenzopalazzo/rust-lightning?rev=4e0068a33c3313a2b36e6e967f2e31e1232a8a19#4e0068a33c3313a2b36e6e967f2e31e1232a8a19"
+source = "git+https://github.com/lightningdevkit/rust-lightning?tag=v0.3.0-beta1#9174965af9437196c527a9aa0df36bbcf050c8bb"
 dependencies = [
  "getrandom",
 ]
@@ -423,6 +434,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9465315bc9d4566e1724f0fffcbcc446268cb522e60f9a27bcded6b19c108113"
 dependencies = [
  "bitcoin_hashes",
+ "rand",
  "secp256k1-sys",
  "serde",
 ]
